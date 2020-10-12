@@ -1,0 +1,8 @@
+{
+    "uuid": "distinct@sireliah.com",
+    "name": "Distinct Windows",
+    "description": "This extension makes visually differentiates windows",
+    "version": 1,
+    "shell-version": [ "3.30", "3.32" ],
+    "url": "https://gitlab.gnome.org/World/ShellExtensions/gnome-shell-extension-example"
+}
