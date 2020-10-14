@@ -7,7 +7,7 @@ const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 const Workspace = imports.ui.workspace;
 const St = imports.gi.St;
-const Emojis = Me.imports.emojis;
+const Markers = Me.imports.markers;
 
 
 // TODO:
@@ -41,7 +41,7 @@ class DistinctOverlay extends Workspace.WindowOverlay {
             const { uniqueName, color } = windows[windowName];
         } else {
             number += 1;
-            windows[windowName] = { uniqueSymbol: pickRandomEmoji(Emojis.emojis), color: generateRGBA() };
+            windows[windowName] = { uniqueSymbol: pickRandomEmoji(Markers.emojis), color: generateRGBA() };
         }
 
         this._marker = { number };
