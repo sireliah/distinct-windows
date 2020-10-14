@@ -7,13 +7,15 @@ const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 const Workspace = imports.ui.workspace;
 const St = imports.gi.St;
+const Emojis = Me.imports.emojis;
 
-// TODO: garbage collect this
-let windows = {};
-let number = 0;
 
 // TODO:
-// scale factor
+// - garbage collect closed windows
+// - scale factor
+
+let windows = {};
+let number = 0;
 
 
 function generateRandomColor() {
@@ -24,48 +26,51 @@ function generateRGBA() {
     return `rgba(${generateRandomColor()}, ${generateRandomColor()}, ${generateRandomColor()}, 0.7)`;
 }
 
+function pickRandomEmoji(emojis) {
+    const index = Math.floor(Math.random() * emojis.length);
+    return emojis[index];
+}
+
 class DistinctOverlay extends Workspace.WindowOverlay {
     constructor(windowClone, parentActor) {
         super(windowClone, parentActor);
         const meta = this._windowClone.metaWindow;
         const windowName = this._windowClone.metaWindow.toString();
-        // log(`This: ${this._windowClone.metaWindow.get_parent()}`);
-
-        let currentWindow = global.get_window_actors().filter(actor => {
-            log(meta === actor.meta_window);
-            return meta === actor.meta_window;
-        }).pop();
-
-        log(currentWindow);
-        if (currentWindow) {
-            log(currentWindow.get_meta_window());
-            currentWindow.connect('destroy', () => {
-                log('Deleting stuff');
-                delete windows[windowName];
-            });
-        }        
-
+      
         if (windowName in windows) {
-            const {uniqueName, color} = windows[windowName];
+            const { uniqueName, color } = windows[windowName];
         } else {
             number += 1;
-            windows[windowName] = {uniqueName: number, color: generateRGBA()};
+            windows[windowName] = { uniqueSymbol: pickRandomEmoji(Emojis.emojis), color: generateRGBA() };
         }
 
-        this._marker = {number};
+        this._marker = { number };
         this._marker.box = new St.Bin();
-        const {uniqueName, color} = windows[windowName];
+
+
+        const { uniqueSymbol, color } = windows[windowName];
         this._marker.box.style = `background-color: ${color};
-                                  border-radius: 6px;`;
+                                  border-radius: 0 0 10px 0;
+                                  padding: 2px;
+                                  text-align: center;`;
         this._marker.box.height = 50;
         this._marker.box.width = 50;
 
 
-        this._marker.label = new St.Label({style_class: 'extension-distinctWindows-label', text: `${uniqueName}`});
+        this._marker.label = new St.Label({
+            style_class: 'extension-distinctWindows-label',
+            text: `${uniqueSymbol}`
+        });
         this._marker.box.add_actor(this._marker.label);
-        
+
         parentActor.add_actor(this._marker.box);
         parentActor.set_child_below_sibling(this.title, this._marker.box);
+
+        windowClone.connect("destroy", () => {
+            if (this._marker && this._marker.box) {
+                this._marker.box.destroy();
+            }
+        });
     }
 
     show() {
@@ -92,16 +97,16 @@ class DistinctOverlay extends Workspace.WindowOverlay {
         }
     }
 
-    // _onDestroy(animate) {
-    //     super._onDestroy(animate);
-    //     log(`Destroying: ${this.actor}`);
-    //     const windowName = this._windowClone.get_label_actor().text;
+    _onDestroy(animate) {
+        super._onDestroy(animate);
+        const windowName = this._windowClone.get_label_actor().text;
 
-    //     if (this._marker && this._marker.box) {
-    //         log(`Cleaning: ${windowName}`);
-    //         delete windows[windowName];
-    //     }
-    // }
+        if (this._marker && this._marker.box) {
+            this._marker.box.destroy();
+            this._marker.label.destroy();
+            delete windows[windowName];
+        }
+    }
 }
 
 
