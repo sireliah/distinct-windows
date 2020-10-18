@@ -1,13 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.distinct" path="/org/gnome/shell/extensions/distinct/">
-    <!-- The key type "a{sb}" describes a dictionary of string-boolean pairs -->
     <!-- See also: https://developer.gnome.org/glib/stable/gvariant-format-strings.html -->
-    <key name="panel-states" type="a{sb}">
-      <default>{}</default>
-    </key>
-    <key name="show-indicator" type="b">
-      <default>true</default>
+    <key name="marker-choice" type="s">
+      <default>"shapes"</default>
     </key>
   </schema>
 </schemalist>

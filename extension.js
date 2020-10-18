@@ -4,6 +4,7 @@
 let on_window_created;
 
 const ExtensionUtils = imports.misc.extensionUtils;
+const Gio = imports.gi.Gio;
 const Me = ExtensionUtils.getCurrentExtension();
 const Workspace = imports.ui.workspace;
 const St = imports.gi.St;
@@ -26,14 +27,24 @@ function generateRGBA() {
     return `rgba(${generateRandomColor()}, ${generateRandomColor()}, ${generateRandomColor()}, 0.7)`;
 }
 
-function pickRandomEmoji(emojis) {
-    const index = Math.floor(Math.random() * emojis.length);
-    return emojis[index];
+function pickRandomMarker(markers) {
+    const index = Math.floor(Math.random() * markers.length);
+    return markers[index];
 }
 
 class DistinctOverlay extends Workspace.WindowOverlay {
     constructor(windowClone, parentActor) {
         super(windowClone, parentActor);
+
+        let gschema = Gio.SettingsSchemaSource.new_from_directory(
+            Me.dir.get_child('schemas').get_path(),
+            Gio.SettingsSchemaSource.get_default(),
+            false
+        );
+
+        this.settings = new Gio.Settings({
+            settings_schema: gschema.lookup('org.gnome.shell.extensions.distinct', true)
+        });
         const meta = this._windowClone.metaWindow;
         const windowName = this._windowClone.metaWindow.toString();
       
@@ -41,7 +52,9 @@ class DistinctOverlay extends Workspace.WindowOverlay {
             const { uniqueName, color } = windows[windowName];
         } else {
             number += 1;
-            windows[windowName] = { uniqueSymbol: pickRandomEmoji(Markers.emojis), color: generateRGBA() };
+            let setting = this.settings.get_value('marker-choice');
+            let marker = Markers[setting.unpack()];
+            windows[windowName] = { uniqueSymbol: pickRandomMarker(marker), color: generateRGBA() };
         }
 
         this._marker = { number };
@@ -66,11 +79,11 @@ class DistinctOverlay extends Workspace.WindowOverlay {
         parentActor.add_actor(this._marker.box);
         parentActor.set_child_below_sibling(this.title, this._marker.box);
 
-        windowClone.connect("destroy", () => {
-            if (this._marker && this._marker.box) {
-                this._marker.box.destroy();
-            }
-        });
+        // windowClone.connect("destroy", () => {
+        //     if (this._marker && this._marker.box) {
+        //         this._marker.box.destroy();
+        //     }
+        // });
     }
 
     show() {
@@ -99,12 +112,14 @@ class DistinctOverlay extends Workspace.WindowOverlay {
 
     _onDestroy(animate) {
         super._onDestroy(animate);
-        const windowName = this._windowClone.get_label_actor().text;
+        const windowActor = this._windowClone.get_label_actor();
 
         if (this._marker && this._marker.box) {
             this._marker.box.destroy();
-            this._marker.label.destroy();
-            delete windows[windowName];
+            // this._marker.label.destroy();
+            if (windowActor) {
+                delete windows[windowActor.text];
+            }
         }
     }
 }

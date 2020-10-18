@@ -25,43 +25,74 @@ function buildPrefsWidget() {
     });
 
     // Create a parent widget that we'll return from this function
-    let prefsWidget = new Gtk.Grid({
-        margin: 18,
-        column_spacing: 12,
-        row_spacing: 12,
+    let prefsWidget = new Gtk.Box({
+        // margin: 18,
+        spacing: 5,
+        halign: Gtk.Align.CENTER,
         visible: true
     });
 
     // Add a simple title and add it to the prefsWidget
     let title = new Gtk.Label({
         // As described in "Extension Translations", the following template
-        // lit
-        // prefs.js:88: warning: RegExp literal terminated too early
-        //label: `<b>${Me.metadata.name} Extension Preferences</b>`,
         label: '<b>' + Me.metadata.name + ' Extension Preferences</b>',
         halign: Gtk.Align.START,
         use_markup: true,
         visible: true
     });
-    prefsWidget.attach(title, 0, 0, 2, 1);
+    prefsWidget.add(title);
+
+    let box = new Gtk.Box({
+        orientation: Gtk.Orientation.VERTICAL,
+        halign: Gtk.Align.CENTER,
+        visible: true
+    });
 
     let choiceLabel = new Gtk.Label({
         label: 'Visual indicator:',
-        halign: Gtk.Align.START,
+        // halign: Gtk.Align.START,
         visible: true
     });
-    prefsWidget.attach(choiceLabel, 0, 1, 1, 1);
 
-    // Create a 'Reset' button and add it to the prefsWidget
-    let button = new Gtk.Button({
-        label: 'Reset Panel',
-        visible: true
-    });
-    prefsWidget.attach(button, 1, 1, 1, 1);
+    box.add(choiceLabel);
 
-    // Connect the ::clicked signal to reset the stored settings
-    button.connect('clicked', (button) => this.settings.reset('panel-states'));
+    let modes = {
+        'shapes': 'Shapes',
+        'emojis': 'Emoji'
+    };
+    let radio = null;
+    let currentRadio = null;
+    let currentMode = this.settings.get_string('marker-choice');
 
+    for (const mode in modes) {
+        let text = modes[mode];
+        radio = new Gtk.RadioButton({
+            active: currentMode,
+            label: text,
+            group: radio,
+            visible: true
+        });
+
+        if (currentMode === mode) {
+            currentRadio = radio;
+        }
+
+        box.add(radio);
+
+        radio.connect('toggled', button => {
+            if (button.active) {
+                this.settings.set_string('marker-choice', mode);
+            }
+        });
+    }
+
+    prefsWidget.add(box);
+
+    if (currentRadio) {
+        currentRadio.active = true;
+    }
+
+    //prefsWidget.show_all();
     // Return our widget which will be added to the window
     return prefsWidget;
 }
