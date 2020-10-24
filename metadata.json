@@ -1,7 +1,7 @@
 {
     "uuid": "distinct@sireliah.com",
     "name": "Distinct Windows",
-    "description": "Visually differentiate windows",
+    "description": "Visually differentiate windows with colors and symbols",
     "version": 1,
     "shell-version": [ "3.30", "3.32" ],
     "url": "https://gitlab.gnome.org/World/ShellExtensions/gnome-shell-extension-example"
