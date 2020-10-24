@@ -11,32 +11,21 @@ const St = imports.gi.St;
 const Markers = Me.imports.markers;
 
 
-let gschema = Gio.SettingsSchemaSource.new_from_directory(
-    Me.dir.get_child('schemas').get_path(),
-    Gio.SettingsSchemaSource.get_default(),
-    false
-);
-
-const settings = new Gio.Settings({
-    settings_schema: gschema.lookup('org.gnome.shell.extensions.distinct', true)
-});
-
-settings.connect('changed::marker-choice', function() {
-    resetWindowMarkers();
-});
-
-
 // TODO: connect to which event to garbage collect closed window?
 let windows = {};
+let originalOverlay;
+let settings;
 
 function resetWindowMarkers() {
-    log("Doing reset");
+    // Replace markers in all existing windows
+    log("Reseting all markers");
     for (const windowName in windows) {
         setMarker(windowName);
     }
 }
 
 function setMarker(windowName) {
+    // Persist marker and color for given window
     let setting = settings.get_value('marker-choice');
     let marker = Markers[setting.unpack()];
     windows[windowName] = { uniqueSymbol: pickRandomMarker(marker), color: generateRGBA() };
@@ -55,96 +44,107 @@ function pickRandomMarker(markers) {
     return markers[index];
 }
 
-class DistinctOverlay extends Workspace.WindowOverlay {
-    constructor(windowClone, parentActor) {
-        super(windowClone, parentActor);
+function enable() {
+    log(`Enabling ${Me.metadata.name} version ${Me.metadata.version}`);
 
-        const meta = this._windowClone.metaWindow;
-        const windowName = this._windowClone.metaWindow.toString();
+    // When user changed preferred markers in settings, reset all markers
+    settings.connect('changed::marker-choice', function() {
+        resetWindowMarkers();
+    });
 
-        if (windowName in windows) {
-            const { uniqueName, color } = windows[windowName];
-        } else {
-            setMarker(windowName);
+    Workspace.WindowOverlay = class extends Workspace.WindowOverlay {
+        constructor(windowClone, parentActor) {
+            super(windowClone, parentActor);
+
+            const meta = this._windowClone.metaWindow;
+            const windowName = this._windowClone.metaWindow.toString();
+
+            if (windowName in windows) {
+                const { uniqueName, color } = windows[windowName];
+            } else {
+                setMarker(windowName);
+            }
+
+            this._marker = {};
+            this._marker.box = new St.Bin();
+
+            const { uniqueSymbol, color } = windows[windowName];
+            this._marker.box.style = `background-color: ${color};
+                                      border-radius: 0 0 10px 0;
+                                      padding: 2px;
+                                      text-align: center;`;
+            this._marker.box.height = 60;
+            this._marker.box.width = 60;
+
+
+            this._marker.label = new St.Label({
+                style_class: 'extension-distinctWindows-label',
+                text: `${uniqueSymbol}`
+            });
+            this._marker.box.add_actor(this._marker.label);
+
+            parentActor.add_actor(this._marker.box);
+            parentActor.set_child_below_sibling(this.title, this._marker.box);
         }
 
-        this._marker = {};
-        this._marker.box = new St.Bin();
-
-
-        const { uniqueSymbol, color } = windows[windowName];
-        this._marker.box.style = `background-color: ${color};
-                                  border-radius: 0 0 10px 0;
-                                  padding: 2px;
-                                  text-align: center;`;
-        this._marker.box.height = 60;
-        this._marker.box.width = 60;
-
-
-        this._marker.label = new St.Label({
-            style_class: 'extension-distinctWindows-label',
-            text: `${uniqueSymbol}`
-        });
-        this._marker.box.add_actor(this._marker.label);
-
-        parentActor.add_actor(this._marker.box);
-        parentActor.set_child_below_sibling(this.title, this._marker.box);
-
-    }
-
-    show() {
-        super.show(...arguments);
-        if (this._marker && this._marker.box) {
-            this._marker.box.show();
-        }
-    }
-
-    hide() {
-        super.hide(...arguments);
-
-        if (this._marker && this._marker.box) {
-            this._marker.box.hide();
-        }
-    }
-
-    relayout(animate) {
-        super.relayout(animate);
-
-        if (this._marker && this._marker.box) {
-            let [x, y, width, height] = this._windowClone.slot;
-            this._marker.box.set_position(x, y);
-        }
-    }
-
-    _onDestroy(animate) {
-        super._onDestroy(animate);
-        const windowActor = this._windowClone.get_label_actor();
-
-        if (this._marker && this._marker.box) {
-            this._marker.box.destroy();
-            if (windowActor) {
-                delete windows[windowActor.text];
+        show() {
+            super.show(...arguments);
+            if (this._marker && this._marker.box) {
+                this._marker.box.show();
             }
         }
-    }
-}
 
+        hide() {
+            super.hide(...arguments);
 
-class Extension {
-    constructor() {
-        this._originalOverlay = Workspace.WindowOverlay;
-    }
+            if (this._marker && this._marker.box) {
+                this._marker.box.hide();
+            }
+        }
 
-    enable() {
-        Workspace.WindowOverlay = DistinctOverlay;
-    }
+        relayout(animate) {
+            super.relayout(animate);
 
-    disable() {
-        Workspace.WindowOverlay = this._originalOverlay;
-    }
+            if (this._marker && this._marker.box) {
+                let [x, y, width, height] = this._windowClone.slot;
+                this._marker.box.set_position(x, y);
+            }
+        }
+
+        _onDestroy(animate) {
+            super._onDestroy(animate);
+            const windowActor = this._windowClone.get_label_actor();
+
+            if (this._marker && this._marker.box) {
+                this._marker.box.destroy();
+                if (windowActor) {
+                    delete windows[windowActor.text];
+                }
+            }
+        }
+    };
 }
 
 function init() {
-    log("Initialized!");
-    return new Extension();
+    log(`Initializing ${Me.metadata.name} version ${Me.metadata.version}`);
+    originalOverlay = Workspace.WindowOverlay;
+
+    let gschema = Gio.SettingsSchemaSource.new_from_directory(
+        Me.dir.get_child('schemas').get_path(),
+        Gio.SettingsSchemaSource.get_default(),
+        false
+    );
+
+    settings = new Gio.Settings({
+        settings_schema: gschema.lookup('org.gnome.shell.extensions.distinct', true)
+    });
+}
+
+function disable() {
+    log(`Disabling ${Me.metadata.name} version ${Me.metadata.version}`);
+    Workspace.WindowOverlay = originalOverlay;
+    windows = {};
+    if (settings) {
+        settings.disconnect('changed::marker-choice');
+    }
 }
