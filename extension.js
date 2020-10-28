@@ -8,18 +8,20 @@ const Gio = imports.gi.Gio;
 const Me = ExtensionUtils.getCurrentExtension();
 const Workspace = imports.ui.workspace;
 const St = imports.gi.St;
+const Shell = imports.gi.Shell;
 const Markers = Me.imports.markers;
 
 
-// TODO: connect to which event to garbage collect closed window?
-let windows = {};
+let windowConfigs;
 let originalOverlay;
 let settings;
+let wmHandler;
+let settingsHandler;
 
 function resetWindowMarkers() {
-    // Replace markers in all existing windows
+    // Replace markers in all existing windowConfigs
     log("Reseting all markers");
-    for (const windowName in windows) {
+    for (const windowName in windowConfigs) {
         setMarker(windowName);
     }
 }
@@ -28,7 +30,7 @@ function setMarker(windowName) {
     // Persist marker and color for given window
     let setting = settings.get_value('marker-choice');
     let marker = Markers[setting.unpack()];
-    windows[windowName] = { uniqueSymbol: pickRandomMarker(marker), color: generateRGBA() };
+    windowConfigs[windowName] = { uniqueSymbol: pickRandomMarker(marker), color: generateRGBA() };
 }
 
 function generateRandomColor() {
@@ -47,8 +49,17 @@ function pickRandomMarker(markers) {
 function enable() {
     log(`Enabling ${Me.metadata.name} version ${Me.metadata.version}`);
 
+    windowConfigs = {};
+
+    let wm = global.window_manager;
+    wmHandler = wm.connect('destroy', function(_shellwm, actor) {
+        // Remove configs for windows that has been closed
+        let metaName = actor.meta_window.toString();
+        delete windowConfigs[metaName];
+    });
+
     // When user changed preferred markers in settings, reset all markers
-    settings.connect('changed::marker-choice', function() {
+    settingsHandler = settings.connect('changed::marker-choice', function() {
         resetWindowMarkers();
     });
 
@@ -57,10 +68,10 @@ function enable() {
             super(windowClone, parentActor);
 
             const meta = this._windowClone.metaWindow;
-            const windowName = this._windowClone.metaWindow.toString();
+            const windowName = meta.toString();
 
-            if (windowName in windows) {
-                const { uniqueName, color } = windows[windowName];
+            if (windowName in windowConfigs) {
+                const { uniqueName, color } = windowConfigs[windowName];
             } else {
                 setMarker(windowName);
             }
@@ -68,7 +79,7 @@ function enable() {
             this._marker = {};
             this._marker.box = new St.Bin();
 
-            const { uniqueSymbol, color } = windows[windowName];
+            const { uniqueSymbol, color } = windowConfigs[windowName];
             this._marker.box.style = `background-color: ${color};
                                       border-radius: 0 0 10px 0;
                                       padding: 2px;
@@ -118,7 +129,7 @@ function enable() {
             if (this._marker && this._marker.box) {
                 this._marker.box.destroy();
                 if (windowActor) {
-                    delete windows[windowActor.text];
+                    delete windowConfigs[windowActor.text];
                 }
             }
         }
@@ -143,8 +154,12 @@ function init() {
 function disable() {
     log(`Disabling ${Me.metadata.name} version ${Me.metadata.version}`);
     Workspace.WindowOverlay = originalOverlay;
-    windows = {};
-    if (settings) {
-        settings.disconnect('changed::marker-choice');
+    windowConfigs = {};
+    if (settings && settingsHandler) {
+        settings.disconnect(settingsHandler);
+    }
+    if (wmHandler) {
+        let wm = global.window_manager;
+        wm.disconnect(wmHandler);
     }
 }
