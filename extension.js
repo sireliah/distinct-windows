@@ -49,6 +49,8 @@ function pickRandomMarker(markers) {
 function enable() {
     log(`Enabling ${Me.metadata.name} version ${Me.metadata.version}`);
 
+    settings = ExtensionUtils.getSettings('org.gnome.shell.extensions.distinct');
+
     windowConfigs = {};
 
     let wm = global.window_manager;
@@ -139,16 +141,6 @@ function enable() {
 function init() {
     log(`Initializing ${Me.metadata.name} version ${Me.metadata.version}`);
     originalOverlay = Workspace.WindowOverlay;
-
-    let gschema = Gio.SettingsSchemaSource.new_from_directory(
-        Me.dir.get_child('schemas').get_path(),
-        Gio.SettingsSchemaSource.get_default(),
-        false
-    );
-
-    settings = new Gio.Settings({
-        settings_schema: gschema.lookup('org.gnome.shell.extensions.distinct', true)
-    });
 }
 
 function disable() {

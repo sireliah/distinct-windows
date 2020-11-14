@@ -3,6 +3,6 @@
     "name": "Distinct Windows",
     "description": "Visually differentiate windows with colors and symbols",
     "version": 1,
-    "shell-version": [ "3.30", "3.32" ],
+    "shell-version": [ "3.30", "3.32", "3.36" ],
     "url": "https://github.com/sireliah/distinct-windows"
 }
